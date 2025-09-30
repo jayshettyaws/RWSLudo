@@ -5,39 +5,51 @@
 <title>Web Ludo King Clone</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  body { font-family: sans-serif; display:flex; flex-direction:column; align-items:center; background:#f2f2f2; margin:0; padding:0;}
-  #app { max-width:800px; width:100%; padding:10px; }
-  #lobby, #gameArea { background:#fff; border-radius:10px; padding:12px; margin-bottom:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1);}
-  #board { position:relative; width:480px; height:480px; margin:0 auto; display:grid; grid-template-columns:repeat(15,1fr); grid-template-rows:repeat(15,1fr); gap:1px; background:#888;}
-  .cell { width:100%; height:100%; background:#f3f3f3; display:flex; justify-content:center; align-items:center; font-size:10px; position:relative;}
-  .home0 { background:#ff4d4d;} .home1 { background:#4dff4d;} .home2 { background:#ffff4d;} .home3 { background:#4d4dff;}
-  .token { width:28px; height:28px; border-radius:50%; position:absolute; cursor:pointer; z-index:5;}
-  .token0 { background:#ff4d4d;} .token1 { background:#4dff4d;} .token2 { background:#ffff4d;} .token3 { background:#4d4dff;}
-  #dice { font-size:24px; margin:10px; cursor:pointer; padding:8px 16px; border-radius:6px; border:1px solid #333; background:#fff;}
-  #playersList { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;}
-  .playerChip { padding:4px 8px; border-radius:999px; background:#eee; font-weight:600;}
-  #log { max-height:150px; overflow:auto; background:#fafafa; padding:6px; margin-top:6px; border-radius:6px; font-size:12px;}
+  body { font-family: sans-serif; margin:0; padding:0; display:flex; flex-direction:column; align-items:center; background:#f6f7fb; }
+  #app { max-width: 960px; padding: 12px; width: 100%; }
+  header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  #board { display:grid; grid-template-columns: repeat(15, 40px); grid-template-rows: repeat(15, 40px); gap:2px; margin:12px 0; }
+  .cell { width:40px; height:40px; display:flex; justify-content:center; align-items:center; font-size:12px; border:1px solid #ccc; position:relative; }
+  .red { background:#ffcccc; } .green { background:#ccffcc; } .yellow { background:#fff4b2; } .blue { background:#cce6ff; }
+  .safe { border:2px solid #000; }
+  .token { width:28px; height:28px; border-radius:50%; position:absolute; cursor:pointer; display:flex; justify-content:center; align-items:center; color:#fff; font-size:14px; font-weight:bold; transition:all 0.3s ease; }
+  .token0 { background:#ef4444; } .token1 { background:#16a34a; } .token2 { background:#f59e0b; } .token3 { background:#0ea5e9; }
+  #controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  input, button, select { padding:6px 10px; border-radius:6px; border:1px solid #ddd; font-size:14px; }
+  button { cursor:pointer; background:#2563eb; color:white; border:0; }
+  button.secondary { background:#efefef; color:#222; border:1px solid #ddd; }
+  #dice { width:50px; height:50px; font-size:20px; text-align:center; line-height:50px; margin-left:12px; background:#fff; border:2px solid #ccc; border-radius:8px; display:inline-block; }
+  #log { width:100%; max-height:200px; overflow:auto; background:#fff; padding:8px; border-radius:8px; margin-top:12px; }
+  .small { font-size:13px; color:#666; }
 </style>
 </head>
 <body>
 <div id="app">
-  <section id="lobby">
-    <h2>Web Ludo King Clone</h2>
-    <input id="displayName" placeholder="Your Name"/>
-    <button id="createRoomBtn">Create Room</button>
-    <input id="joinCode" placeholder="Enter Room Code" style="width:120px"/>
-    <button id="joinRoomBtn">Join Room</button>
-    <div id="roomInfo"></div>
-    <div id="playersList"></div>
-    <button id="startGameBtn" style="display:none;">Start Game (Host)</button>
-  </section>
+<header>
+  <h2>Web Ludo King Clone</h2>
+  <div class="small">Browser only | Free Multiplayer</div>
+</header>
 
-  <section id="gameArea" style="display:none;">
-    <div id="dice">🎲 Roll</div>
-    <div id="turnInfo"></div>
-    <div id="board"></div>
-    <div id="log"></div>
-  </section>
+<div id="controls">
+  <input id="displayName" placeholder="Your name (optional)">
+  <button id="createBtn">Create Room</button>
+  <input id="joinCode" placeholder="Enter Room Code">
+  <button id="joinBtn" class="secondary">Join Room</button>
+  <select id="colorPref">
+    <option value="auto">Pick token color (auto)</option>
+    <option value="0">Red</option>
+    <option value="1">Green</option>
+    <option value="2">Yellow</option>
+    <option value="3">Blue</option>
+  </select>
+  <button id="startBtn" class="secondary" style="display:none;">Start Game (Host)</button>
+  <button id="rollBtn" style="display:none;">Roll Dice</button>
+  <div id="dice">🎲</div>
+</div>
+
+<div><strong>Room:</strong> <span id="roomCodeLabel">—</span></div>
+<div id="board"></div>
+<div id="log"></div>
 </div>
 
 <!-- Firebase -->
@@ -46,174 +58,124 @@
 
 <script>
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCMqC5kNq0T_Q0MzryI6U59oCqVFI0z1c8",
+  authDomain: "rwsludo.firebaseapp.com",
+  databaseURL: "https://rwsludo-default-rtdb.firebaseio.com",
+  projectId: "rwsludo",
+  storageBucket: "rwsludo.appspot.com",
+  messagingSenderId: "199418318279",
+  appId: "1:199418318279:web:7ac803f55b081eba1b9de2"
 };
 const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// --- Variables ---
-let myId = 'p_' + Math.random().toString(36).slice(2,9);
-let myName = '';
-let myColor = null;
-let roomCode = null;
-let roomRef = null;
-let currentRoom = null;
-let amHost = false;
-let diceRoll = null;
-
-// --- DOM ---
-const createRoomBtn = document.getElementById('createRoomBtn');
-const joinRoomBtn = document.getElementById('joinRoomBtn');
-const startGameBtn = document.getElementById('startGameBtn');
-const displayNameInput = document.getElementById('displayName');
-const joinCodeInput = document.getElementById('joinCode');
-const roomInfo = document.getElementById('roomInfo');
-const playersListEl = document.getElementById('playersList');
-const gameArea = document.getElementById('gameArea');
+const BOARD_SIZE = 15*15;
 const boardEl = document.getElementById('board');
-const diceEl = document.getElementById('dice');
-const turnInfoEl = document.getElementById('turnInfo');
 const logEl = document.getElementById('log');
+const diceEl = document.getElementById('dice');
 
-// --- Board setup ---
-const BOARD_SIZE = 52; // path positions (simplified linear)
-let cellEls = [];
-function renderBoard(){
-  boardEl.innerHTML='';
-  for(let i=0;i<15*15;i++){
-    const div = document.createElement('div');
-    div.className='cell';
-    boardEl.appendChild(div);
-    cellEls.push(div);
+function appendLog(txt){ const d=document.createElement('div'); d.textContent=txt; logEl.appendChild(d); logEl.scrollTop=logEl.scrollHeight; }
+
+// Generate simple board
+const cells = [];
+for(let r=0;r<15;r++){
+  for(let c=0;c<15;c++){
+    const cell = document.createElement('div');
+    cell.className='cell';
+    boardEl.appendChild(cell);
+    cells.push(cell);
   }
 }
-renderBoard();
 
-// --- Utilities ---
-function appendLog(txt){
-  const d = document.createElement('div'); d.textContent=txt;
-  logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight;
-}
+// Minimal paths & home positions (simplified for demo)
+const homePositions = {
+  0: [0,1,15,16], // red home tokens
+  1: [13,14,28,29], // green
+  2: [210,211,225,226], // yellow
+  3: [223,224,238,239] // blue
+};
+const pathPositions = []; // Define 52 path positions for each player (simplified)
+for(let i=0;i<52;i++) pathPositions.push(i*3+10); // demo, linear spread
+
+// Local session
+let myId='p_'+Math.random().toString(36).slice(2,9);
+let myName='', myColor=null, roomCode=null, roomRef=null, currentRoom=null, amHost=false;
+let diceRoll=0;
+
+// DOM refs
+const createBtn = document.getElementById('createBtn'), joinBtn = document.getElementById('joinBtn'), startBtn = document.getElementById('startBtn'), rollBtn = document.getElementById('rollBtn');
+const joinCodeInput = document.getElementById('joinCode'), displayNameInput = document.getElementById('displayName'), colorPref = document.getElementById('colorPref');
+const roomCodeLabel = document.getElementById('roomCodeLabel');
+
+// Room functions
 function genRoomCode(){ return Math.random().toString(36).substring(2,8).toUpperCase(); }
 
-// --- Room functions ---
-createRoomBtn.onclick = async()=>{
-  myName = displayNameInput.value || 'Player-'+myId.slice(2,5);
-  myColor = 0; amHost=true;
-  roomCode = genRoomCode();
-  roomRef = db.ref('rooms/'+roomCode);
-  const players = {}; players[myId] = {name:myName, color:myColor, isHost:true};
-  await roomRef.set({players, started:false});
-  roomInfo.innerText = 'Room: '+roomCode;
-  startGameBtn.style.display='inline-block';
-  listenRoom();
-};
-
-joinRoomBtn.onclick=async()=>{
-  myName = displayNameInput.value || 'Player-'+myId.slice(2,5);
-  roomCode = joinCodeInput.value.trim().toUpperCase();
-  if(!roomCode){ alert('Enter room code'); return;}
-  roomRef = db.ref('rooms/'+roomCode);
-  const snap = await roomRef.once('value');
-  if(!snap.exists()){ alert('Room not found'); return;}
-  const room = snap.val();
-  const players = room.players || {};
-  const usedColors = Object.values(players).map(p=>p.color);
-  myColor = [0,1,2,3].find(c=>!usedColors.includes(c))||0;
-  players[myId]={name:myName, color:myColor, isHost:false};
-  await roomRef.child('players').set(players);
-  roomInfo.innerText = 'Joined room: '+roomCode;
-  listenRoom();
-};
-
-startGameBtn.onclick=async()=>{
-  if(!currentRoom) return;
-  const playerIds = Object.keys(currentRoom.players);
-  if(playerIds.length<2){ alert('Need at least 2 players'); return;}
-  const state={positions:{}, turnIndex:0, lastRoll:null, logs:[]};
-  playerIds.forEach(pid=>state.positions[pid]=[-1,-1,-1,-1]);
-  await roomRef.update({started:true,state});
-};
-
-// --- Dice ---
-diceEl.onclick=async()=>{
-  if(!currentRoom||!currentRoom.started) return;
-  const state = currentRoom.state;
-  if(state.order[state.turnIndex]!==myId){ alert("Not your turn"); return;}
-  diceRoll = Math.floor(Math.random()*6)+1;
-  appendLog(myName+' rolled '+diceRoll);
-  await moveToken(diceRoll);
-};
-
-// --- Token movement (click on first movable token) ---
-async function moveToken(roll){
-  const state = currentRoom.state;
-  const posArr = state.positions[myId];
-  let moved=false;
-  for(let i=0;i<4;i++){
-    if(posArr[i]===-1 && roll===6){ posArr[i]=0; moved=true; break;}
-    else if(posArr[i]>=0 && posArr[i]<BOARD_SIZE){ posArr[i]+=roll; if(posArr[i]>BOARD_SIZE) posArr[i]=BOARD_SIZE; moved=true; break;}
-  }
-  if(!moved) { appendLog('No valid move'); return;}
-  state.positions[myId]=posArr;
-  state.lastRoll={pid:myId, roll};
-  // next turn
-  let nextIndex = state.turnIndex; if(roll!==6) nextIndex=(state.turnIndex+1)%Object.keys(currentRoom.players).length;
-  state.turnIndex = nextIndex;
-  await roomRef.child('state').set(state);
+async function createRoom(code){
+  roomCode=code; roomRef=db.ref('rooms/'+roomCode);
+  const players={}; players[myId]={name:myName,color:myColor||0,isHost:true,positions:[0,0,0,0]};
+  const roomObj={players,createdAt:Date.now(),started:false};
+  await roomRef.set(roomObj);
+  listenRoom(); roomCodeLabel.innerText=roomCode;
+  amHost=true; startBtn.style.display='inline-block';
+  appendLog('Room created: '+roomCode);
 }
 
-// --- Listen room updates ---
-function listenRoom(){
-  if(!roomRef) return;
-  roomRef.on('value',snap=>{
-    currentRoom = snap.val();
-    updateUI();
-  });
+async function joinRoom(code){
+  roomCode=code; roomRef=db.ref('rooms/'+roomCode);
+  const snap=await roomRef.once('value'); if(!snap.exists()){ alert('Room not found'); return;}
+  const room=snap.val(); const players=room.players||{};
+  if(Object.keys(players).length>=4){ alert('Room full'); return; }
+  let chosen=myColor; if(chosen===null){ const used=new Set(Object.values(players).map(p=>p.color)); chosen=[0,1,2,3].find(c=>!used.has(c)); if(chosen===undefined)chosen=0;}
+  players[myId]={name:myName,color:chosen,isHost:false,positions:[0,0,0,0]};
+  await roomRef.child('players').set(players); listenRoom(); roomCodeLabel.innerText=roomCode;
+  appendLog('Joined room: '+roomCode);
 }
 
-// --- Update UI ---
+function listenRoom(){ if(!roomRef) return; roomRef.on('value',snap=>{ currentRoom=snap.val(); updateUI(); }); }
+
 function updateUI(){
-  // Players
-  playersListEl.innerHTML='';
-  Object.values(currentRoom.players).forEach(p=>{
-    const div = document.createElement('div'); div.className='playerChip'; div.textContent=p.name;
-    playersListEl.appendChild(div);
-  });
-  gameArea.style.display = currentRoom.started?'block':'none';
-  if(currentRoom.started){
-    turnInfoEl.innerText='Turn: '+currentRoom.players[Object.keys(currentRoom.players)[currentRoom.state.turnIndex]].name;
-    renderTokens();
-  }
-}
-
-// --- Render tokens ---
-function renderTokens(){
-  // clear previous
-  document.querySelectorAll('.token').forEach(t=>t.remove());
-  const positions = currentRoom.state.positions;
-  Object.keys(positions).forEach(pid=>{
-    const arr = positions[pid]; const color = currentRoom.players[pid].color;
-    arr.forEach((p,i)=>{
-      if(p>=0 && p<BOARD_SIZE){
-        const cell = cellEls[p]; if(!cell) return;
-        const t = document.createElement('div');
-        t.className='token token'+color;
-        t.style.left='0px'; t.style.top='0px';
-        t.title=currentRoom.players[pid].name+' #'+(i+1);
-        cell.appendChild(t);
+  boardEl.querySelectorAll('.token').forEach(t=>t.remove());
+  if(!currentRoom) return;
+  // Show players tokens
+  Object.keys(currentRoom.players).forEach(pid=>{
+    const player=currentRoom.players[pid];
+    player.positions.forEach((pos,i)=>{
+      if(pos>=0){
+        const t=document.createElement('div'); t.className='token token'+player.color; t.title=player.name+' #'+(i+1);
+        t.style.left='0px'; t.style.top='0px'; cells[pos].appendChild(t);
       }
     });
   });
+  rollBtn.style.display=(currentRoom.started && currentRoom.players[currentRoom.order?.[currentRoom.turnIndex]]?.name===myName)?'inline-block':'none';
 }
 
-appendLog('Welcome to Web Ludo King Clone! Create a room or join one.');
+// Dice roll
+rollBtn.onclick=async()=>{
+  if(!currentRoom) return;
+  diceRoll=Math.floor(Math.random()*6)+1;
+  diceEl.textContent=diceRoll;
+  // Move first movable token (demo)
+  const player=currentRoom.players[myId];
+  for(let i=0;i<4;i++){
+    player.positions[i]+=diceRoll; if(player.positions[i]>=pathPositions.length) player.positions[i]=pathPositions.length-1; break;
+  }
+  await roomRef.child('players/'+myId+'/positions').set(player.positions);
+}
+
+// Buttons
+createBtn.onclick=()=>{
+  myName=displayNameInput.value.trim()||('Player-'+myId.slice(2,6));
+  myColor=colorPref.value==='auto'?null:parseInt(colorPref.value); roomCode=genRoomCode(); createRoom(roomCode);
+}
+joinBtn.onclick=()=>{
+  myName=displayNameInput.value.trim()||('Player-'+myId.slice(2,6));
+  myColor=colorPref.value==='auto'?null:parseInt(colorPref.value); roomCode=joinCodeInput.value.trim().toUpperCase(); if(!roomCode){alert('Enter room code'); return;} joinRoom(roomCode);
+}
+startBtn.onclick=async()=>{
+  if(!currentRoom) return;
+  const players=Object.keys(currentRoom.players||{}); if(players.length<2){alert('Need 2+ players'); return;}
+  const order=players.slice(0,4); await roomRef.update({started:true,order,turnIndex:0});
+}
 </script>
 </body>
 </html>
