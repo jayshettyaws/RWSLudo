@@ -108,13 +108,14 @@
   appId: "1:199418318279:web:7ac803f55b081eba1b9de2",
   measurementId: "G-XCKNDK04W5"
 };
-    if (!FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) {
-      console.warn('Please paste your Firebase config into FIREBASE_CONFIG in the html file.');
-      // We'll still let UI load but firebase calls will throw until config set.
-    }
+if (!firebaseConfig || !firebaseConfig.apiKey) {
+  console.warn('Please paste your Firebase config into firebaseConfig in the html file.');
+}
+const app = firebase.initializeApp(firebaseConfig);
+
 
     // Initialize Firebase
-    const app = firebase.initializeApp(FIREBASE_CONFIG);
+   
     const db = firebase.database();
 
     /********* Minimal Ludo Game Model (simplified) *********
