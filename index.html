@@ -78,7 +78,7 @@
       <div id="log" class="card"></div>
     </section>
 
-    <footer>Tip: Host creates a room and shares the room code. Up to 4 players. Minimal Ludo for quick play.</footer>
+    <footer>Tip: Host creates a room and shares the room code. Up to 4 players. Minimal Ludo implementation for quick play.</footer>
   </div>
 
   <!-- Firebase SDKs -->
@@ -87,8 +87,7 @@
 
   <!-- Ludo JS -->
   <script>
-  window.onload = () => {
-    // --- Firebase config ---
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyCMqC5kNq0T_Q0MzryI6U59oCqVFI0z1c8",
       authDomain: "rwsludo.firebaseapp.com",
@@ -100,76 +99,96 @@
       measurementId: "G-XCKNDK04W5"
     };
 
+    // Initialize Firebase
     const app = firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // --- UI helpers ---
+    // UI helpers
     const $ = id => document.getElementById(id);
     const logEl = $('log');
-    function appendLog(txt){ const d=document.createElement('div'); d.textContent=txt; logEl.appendChild(d); logEl.scrollTop=logEl.scrollHeight; }
 
-    // --- Board setup ---
+    function appendLog(txt) {
+      const d = document.createElement('div'); d.textContent = txt;
+      logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight;
+    }
+
     const BOARD_SIZE = 52;
     const boardEl = $('board');
-    function renderEmptyBoard(){ boardEl.innerHTML=''; for(let i=0;i<BOARD_SIZE;i++){ const c=document.createElement('div'); c.className='cell'; c.dataset.idx=i; c.textContent=i+1; boardEl.appendChild(c); } }
+
+    function renderEmptyBoard() {
+      boardEl.innerHTML = '';
+      for (let i=0; i<BOARD_SIZE; i++) {
+        const c = document.createElement('div');
+        c.className = 'cell'; c.dataset.idx = i; c.textContent = i+1;
+        boardEl.appendChild(c);
+      }
+    }
+
     renderEmptyBoard();
 
-    // --- Game variables ---
-    let myId='p_'+Math.random().toString(36).slice(2,9);
-    let myName='', myColor=null, roomCode=null, roomRef=null, currentRoom=null, amHost=false;
-    const createBtn=$('createBtn'), joinBtn=$('joinBtn'), startBtn=$('startBtn'), rollBtn=$('rollBtn');
-    const joinCodeInput=$('joinCode'), displayNameInput=$('displayName'), colorPref=$('colorPref');
-
-    // --- Utility ---
     function genRoomCode(){ return Math.random().toString(36).substring(2,8).toUpperCase(); }
 
-    // --- Event handlers ---
-    createBtn.onclick=async()=>{
-      myName=displayNameInput.value.trim()||('Player-'+myId.slice(2,6));
-      myColor=colorPref.value==='auto'?null:parseInt(colorPref.value);
-      roomCode=genRoomCode(); amHost=true;
+    // Local session
+    let myId = 'p_' + Math.random().toString(36).slice(2,9);
+    let myName = '';
+    let myColor = null;
+    let roomCode = null;
+    let roomRef = null;
+    let currentRoom = null;
+    let amHost = false;
+
+    const createBtn = $('createBtn'), joinBtn = $('joinBtn'), startBtn = $('startBtn'), rollBtn = $('rollBtn');
+    const joinCodeInput = $('joinCode'), displayNameInput = $('displayName'), colorPref = $('colorPref');
+
+    createBtn.onclick = async () => {
+      myName = displayNameInput.value.trim() || ('Player-' + myId.slice(2,6));
+      myColor = colorPref.value === 'auto' ? null : parseInt(colorPref.value);
+      roomCode = genRoomCode();
+      amHost = true;
       await createRoom(roomCode);
     };
 
-    joinBtn.onclick=async()=>{
-      myName=displayNameInput.value.trim()||('Player-'+myId.slice(2,6));
-      myColor=colorPref.value==='auto'?null:parseInt(colorPref.value);
-      roomCode=joinCodeInput.value.trim().toUpperCase();
-      if(!roomCode){ alert('Enter room code'); return; }
+    joinBtn.onclick = async () => {
+      myName = displayNameInput.value.trim() || ('Player-' + myId.slice(2,6));
+      myColor = colorPref.value === 'auto' ? null : parseInt(colorPref.value);
+      roomCode = joinCodeInput.value.trim().toUpperCase();
+      if (!roomCode) { alert('Enter room code'); return; }
       await joinRoom(roomCode);
     };
 
-    startBtn.onclick=async()=>{
-      if(!currentRoom) return;
-      const players=Object.keys(currentRoom.players||{});
-      if(players.length<2){ alert('Need at least 2 players'); return; }
-      const order=players.slice(0,4);
-      const state={started:true, order, turnIndex:0, lastRoll:null, positions:{}, logs:[]};
-      order.forEach(pid=>state.positions[pid]=[-1,-1,-1,-1]);
+    startBtn.onclick = async () => {
+      if (!currentRoom) return;
+      const players = Object.keys(currentRoom.players || {});
+      if (players.length < 2) { alert('Need at least 2 players'); return; }
+      const order = players.slice(0,4);
+      const state = { started:true, order, turnIndex:0, lastRoll:null, positions:{}, logs:[] };
+      order.forEach(pid => state.positions[pid]=[-1,-1,-1,-1]);
       await roomRef.update({started:true, order, state});
     };
 
-    rollBtn.onclick=async()=>{
-      if(!currentRoom||!currentRoom.started) return;
-      const state=currentRoom.state||{}; const order=state.order||[];
-      const currentPid=order[state.turnIndex]; if(currentPid!==myId){ alert("Not your turn"); return; }
-      const roll=Math.floor(Math.random()*6)+1;
-      const posArr=state.positions[myId]||[-1,-1,-1,-1];
+    rollBtn.onclick = async () => {
+      if (!currentRoom || !currentRoom.started) return;
+      const state = currentRoom.state || {};
+      const order = state.order || [];
+      const currentPid = order[state.turnIndex];
+      if (currentPid !== myId) { alert("Not your turn"); return; }
+      const roll = Math.floor(Math.random()*6)+1;
+      const posArr = state.positions[myId] || [-1,-1,-1,-1];
       let moved=false;
-      if(roll===6){ const idx=posArr.findIndex(p=>p===-1); if(idx!==-1){ posArr[idx]=0; moved=true; } }
-      if(!moved){ for(let i=0;i<4;i++){ if(posArr[i]>=0&&posArr[i]<BOARD_SIZE){ posArr[i]+=roll; if(posArr[i]>=BOARD_SIZE) posArr[i]=BOARD_SIZE; moved=true; break; } } }
-      state.positions[myId]=posArr; state.lastRoll={pid:myId,roll}; state.logs=state.logs||[];
-      state.logs.push(`${currentRoom.players[myId].name} rolled ${roll}`);
-      state.turnIndex=(roll!==6)?(state.turnIndex+1)%(state.order.length||1):state.turnIndex;
+      if (roll===6){ const idx=posArr.findIndex(p=>p===-1); if(idx!==-1){ posArr[idx]=0; moved=true; } }
+      if(!moved){ for(let i=0;i<4;i++){ if(posArr[i]>=0 && posArr[i]<BOARD_SIZE){ posArr[i]+=roll; if(posArr[i]>=BOARD_SIZE) posArr[i]=BOARD_SIZE; moved=true; break; } } }
+      state.positions[myId]=posArr;
+      state.lastRoll={pid:myId, roll};
+      state.logs=state.logs||[]; state.logs.push(`${currentRoom.players[myId].name} rolled ${roll}`);
+      state.turnIndex = roll===6 ? state.turnIndex : (state.turnIndex+1)%(state.order.length||1);
       await roomRef.child('state').set(state);
     };
 
-    // --- Room functions ---
     async function createRoom(code){
-      roomCode=code;
-      roomRef=db.ref('rooms/'+roomCode);
+      roomCode=code; roomRef=db.ref('rooms/'+roomCode);
       const players={}; players[myId]={name:myName,color:myColor===null?0:myColor,joinedAt:Date.now(),isHost:true};
-      await roomRef.set({players, createdAt:Date.now(), started:false});
+      const roomObj={players, createdAt:Date.now(), started:false};
+      await roomRef.set(roomObj);
       listenRoom();
       $('roomInfo').innerText='Room created: '+roomCode+' — share this code with friends.';
       $('playersWrap').hidden=false; $('roomCodeLabel').innerText=roomCode;
@@ -180,41 +199,33 @@
       roomCode=code; roomRef=db.ref('rooms/'+roomCode);
       const snap=await roomRef.once('value'); if(!snap.exists()){ alert('Room not found'); return; }
       const room=snap.val(); const players=room.players||{};
-      if(Object.keys(players).length>=4){ alert('Room full'); return; }
-      let chosen=myColor;
-      if(chosen===null){ const used=new Set(Object.values(players).map(p=>p.color)); chosen=[0,1,2,3].find(c=>!used.has(c))||0; }
+      if(Object.keys(players).length>=4){ alert('Room full (max 4)'); return; }
+      let chosen=myColor; if(chosen===null){ const used=new Set(Object.values(players).map(p=>p.color)); chosen=[0,1,2,3].find(c=>!used.has(c)); if(chosen===undefined) chosen=0; }
       players[myId]={name:myName,color:chosen,joinedAt:Date.now(),isHost:false};
-      await roomRef.child('players').set(players); listenRoom();
-      $('roomInfo').innerText='Joined room: '+roomCode; $('playersWrap').hidden=false; $('roomCodeLabel').innerText=roomCode;
+      await roomRef.child('players').set(players);
+      listenRoom(); $('roomInfo').innerText='Joined room: '+roomCode; $('playersWrap').hidden=false; $('roomCodeLabel').innerText=roomCode;
       appendLog('Joined room: '+roomCode);
     }
 
-    function listenRoom(){ if(!roomRef) return; roomRef.on('value',snap=>{ currentRoom=snap.val(); updatePlayersUI(); updateGameFromRoom(); }); }
+    function listenRoom(){
+      if(!roomRef) return;
+      roomRef.on('value',snap=>{ currentRoom=snap.val(); updatePlayersUI(); updateGameFromRoom(); });
+    }
 
     function updatePlayersUI(){
-      const players=currentRoom?.players||{};
-      const list=$('playersList'); list.innerHTML='';
-      Object.keys(players).forEach(pid=>{
-        const p=players[pid]; const div=document.createElement('div'); div.className='playerChip';
-        div.textContent=p.name+(p.isHost?' (host)':''); list.appendChild(div);
-        if(pid===myId) amHost=!!p.isHost;
-      });
+      const players=currentRoom&&currentRoom.players?currentRoom.players:{}; const list=$('playersList'); list.innerHTML='';
+      Object.keys(players).forEach(pid=>{ const p=players[pid]; const div=document.createElement('div'); div.className='playerChip'; div.textContent=p.name+(p.isHost?' (host)':''); list.appendChild(div); if(pid===myId) amHost=!!p.isHost; });
       $('playersWrap').hidden=Object.keys(players).length===0;
-      startBtn.style.display=(amHost && (!currentRoom.started))?'inline-block':'none';
+      startBtn.style.display=(amHost&&(!currentRoom.started))?'inline-block':'none';
       $('gameArea').hidden=!currentRoom.started;
     }
 
     function updateGameFromRoom(){
-      if(!currentRoom?.started) return;
+      if(!currentRoom||!currentRoom.started) return;
       $('gameArea').hidden=false;
       const state=currentRoom.state||{}; const order=state.order||[];
       const wrap=$('playersWrapBoard'); wrap.innerHTML='';
-      order.forEach((pid,idx)=>{
-        const p=currentRoom.players[pid];
-        const el=document.createElement('div'); el.className='small center';
-        const badge=document.createElement('div'); badge.textContent=(idx===state.turnIndex?'▶':'•')+' '+p.name; badge.style.minWidth='120px';
-        el.appendChild(badge); wrap.appendChild(el);
-      });
+      order.forEach((pid,idx)=>{ const p=currentRoom.players[pid]; const el=document.createElement('div'); el.className='small center'; const badge=document.createElement('div'); badge.textContent=(idx===state.turnIndex?'▶':'•')+' '+p.name; badge.style.minWidth='120px'; el.appendChild(badge); wrap.appendChild(el); });
       $('turnLabel').innerText='Turn: '+(currentRoom.players[state.order[state.turnIndex]]?.name||'—');
       $('lastRoll').innerText=state.lastRoll?`Last: ${state.lastRoll.roll} (${currentRoom.players[state.lastRoll.pid]?.name||''})`:'';
       renderBoardPositions(state.positions||{});
@@ -222,22 +233,14 @@
     }
 
     function renderBoardPositions(positions){
-      for(let i=0;i<BOARD_SIZE;i++){ const cell=boardEl.querySelector(`[data-idx="${i}"]`); if(cell) cell.innerHTML=i+1; }
+      for(let i=0;i<BOARD_SIZE;i++){ const cell=boardEl.querySelector(`[data-idx="${i}"]`); if(!cell) continue; cell.innerHTML=i+1; }
       if(!positions) return;
-      Object.keys(positions).forEach(pid=>{
-        const arr=positions[pid]; const color=currentRoom.players[pid]?.color??0;
-        arr.forEach((p,idxTok)=>{
-          if(p>=0&&p<BOARD_SIZE){
-            const cell=boardEl.querySelector(`[data-idx="${p}"]`); if(!cell) return;
-            const t=document.createElement('span'); t.className='token p'+(color%4); t.title=(currentRoom.players[pid]?.name||'')+' #'+(idxTok+1);
-            cell.appendChild(t);
-          }
-        });
+      Object.keys(positions).forEach(pid=>{ const arr=positions[pid]; const color=currentRoom.players[pid]?.color??0;
+        arr.forEach((p,idxTok)=>{ if(p>=0 && p<BOARD_SIZE){ const cell=boardEl.querySelector(`[data-idx="${p}"]`); if(!cell) return; const t=document.createElement('span'); t.className='token p'+(color%4); t.title=(currentRoom.players[pid]?.name||'')+' #'+(idxTok+1); cell.appendChild(t); } });
       });
     }
 
-    appendLog('Welcome to Web Ludo. Create a room and share the code to start playing.');
-  };
+    appendLog('Welcome to Web Ludo. Create a room, share code, then have friends join.');
   </script>
 </body>
 </html>
