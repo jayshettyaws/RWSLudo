@@ -7,14 +7,21 @@
 <body>
   <h1>Firebase Test</h1>
 
-  <!-- 1. Load Firebase scripts first -->
+  <!-- 1. Firebase app -->
   <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-app-compat.js"></script>
+
+  <!-- 2. Firebase database -->
   <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-database-compat.js"></script>
 
-  <!-- 2. Then your code -->
+  <!-- 3. Your code -->
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      // Your Firebase config
+    window.onload = function() {
+      // Make sure 'firebase' exists
+      if (!window.firebase) {
+        console.error("Firebase not loaded!");
+        return;
+      }
+
       const firebaseConfig = {
         apiKey: "AIzaSyCMqC5kNq0T_Q0MzryI6U59oCqVFI0z1c8",
         authDomain: "rwsludo.firebaseapp.com",
@@ -31,9 +38,9 @@
 
       console.log("Firebase initialized!", db);
 
-      // Test: write something to DB (optional)
-      db.ref('test').set({ hello: "world" });
-    });
+      // Test write
+      db.ref('test').set({ message: "Hello Firebase!" });
+    };
   </script>
 </body>
 </html>
