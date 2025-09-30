@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Web Ludo — Play with Friends</title>
+  <title>Web Ludo — Play with Friends (Room Code)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; margin:0; padding:0; display:flex; flex-direction:column; align-items:center; gap:12px; background:#f6f7fb; color:#222; }
@@ -16,10 +16,10 @@
     #board { display:grid; grid-template-columns: repeat(15, 32px); grid-gap:4px; padding:12px; border-radius:10px; }
     .cell { width:32px; height:32px; background:#f3f4f6; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:11px; color:#333; }
     .token { width:20px; height:20px; border-radius:50%; display:inline-block; }
-    .token.p0 { background:#ef4444; }
-    .token.p1 { background:#16a34a; }
-    .token.p2 { background:#f59e0b; }
-    .token.p3 { background:#0ea5e9; }
+    .token.p0 { background:#ef4444; } /* red */
+    .token.p1 { background:#16a34a; } /* green */
+    .token.p2 { background:#f59e0b; } /* yellow */
+    .token.p3 { background:#0ea5e9; } /* blue */
     #log { max-height:220px; overflow:auto; padding:8px; background:#fff; border-radius:8px; width:100%; }
     .small { font-size:13px; color:#666; }
     .center { display:flex; justify-content:center; align-items:center; gap:8px; }
@@ -71,21 +71,20 @@
         </div>
         <div style="margin-top:12px" id="playersWrapBoard" class="small"></div>
       </div>
-
       <div style="height:16px"></div>
       <div id="board" class="card"></div>
       <div style="height:8px"></div>
       <div id="log" class="card"></div>
     </section>
 
-    <footer>Tip: Host creates a room and shares the room code. Up to 4 players. Minimal Ludo implementation for quick play.</footer>
+    <footer>Tip: Host creates a room and shares the room code. Up to 4 players. This is a minimal Ludo implementation to get you playing fast.</footer>
   </div>
 
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-database-compat.js"></script>
 
-  <!-- Ludo JS -->
+  <!-- Game Script -->
   <script>
     // Firebase configuration
     const firebaseConfig = {
@@ -95,40 +94,17 @@
       projectId: "rwsludo",
       storageBucket: "rwsludo.appspot.com",
       messagingSenderId: "199418318279",
-      appId: "1:199418318279:web:7ac803f55b081eba1b9de2",
-      measurementId: "G-XCKNDK04W5"
+      appId: "1:199418318279:web:7ac803f55b081eba1b9de2"
     };
 
-    // Initialize Firebase
+    // Initialize Firebase AFTER SDK is loaded
     const app = firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // UI helpers
+    // ---------------- Game Variables ----------------
     const $ = id => document.getElementById(id);
     const logEl = $('log');
 
-    function appendLog(txt) {
-      const d = document.createElement('div'); d.textContent = txt;
-      logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight;
-    }
-
-    const BOARD_SIZE = 52;
-    const boardEl = $('board');
-
-    function renderEmptyBoard() {
-      boardEl.innerHTML = '';
-      for (let i=0; i<BOARD_SIZE; i++) {
-        const c = document.createElement('div');
-        c.className = 'cell'; c.dataset.idx = i; c.textContent = i+1;
-        boardEl.appendChild(c);
-      }
-    }
-
-    renderEmptyBoard();
-
-    function genRoomCode(){ return Math.random().toString(36).substring(2,8).toUpperCase(); }
-
-    // Local session
     let myId = 'p_' + Math.random().toString(36).slice(2,9);
     let myName = '';
     let myColor = null;
@@ -139,7 +115,27 @@
 
     const createBtn = $('createBtn'), joinBtn = $('joinBtn'), startBtn = $('startBtn'), rollBtn = $('rollBtn');
     const joinCodeInput = $('joinCode'), displayNameInput = $('displayName'), colorPref = $('colorPref');
+    const boardEl = $('board');
 
+    function appendLog(txt){
+      const d = document.createElement('div'); d.textContent = txt;
+      logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function renderEmptyBoard(){
+      boardEl.innerHTML = '';
+      for (let i=0;i<52;i++){
+        const c = document.createElement('div');
+        c.className = 'cell'; c.dataset.idx = i;
+        c.textContent = i+1;
+        boardEl.appendChild(c);
+      }
+    }
+    renderEmptyBoard();
+
+    function genRoomCode(){ return Math.random().toString(36).substring(2,8).toUpperCase(); }
+
+    // --------------- Event Listeners ----------------
     createBtn.onclick = async () => {
       myName = displayNameInput.value.trim() || ('Player-' + myId.slice(2,6));
       myColor = colorPref.value === 'auto' ? null : parseInt(colorPref.value);
@@ -159,10 +155,17 @@
     startBtn.onclick = async () => {
       if (!currentRoom) return;
       const players = Object.keys(currentRoom.players || {});
-      if (players.length < 2) { alert('Need at least 2 players'); return; }
+      if (players.length < 2) { alert('Need at least 2 players to start'); return; }
       const order = players.slice(0,4);
-      const state = { started:true, order, turnIndex:0, lastRoll:null, positions:{}, logs:[] };
-      order.forEach(pid => state.positions[pid]=[-1,-1,-1,-1]);
+      const state = {
+        started:true,
+        order,
+        turnIndex:0,
+        lastRoll:null,
+        positions:{},
+        logs:[]
+      };
+      order.forEach(pid=>state.positions[pid]=[-1,-1,-1,-1]);
       await roomRef.update({started:true, order, state});
     };
 
@@ -175,57 +178,84 @@
       const roll = Math.floor(Math.random()*6)+1;
       const posArr = state.positions[myId] || [-1,-1,-1,-1];
       let moved=false;
-      if (roll===6){ const idx=posArr.findIndex(p=>p===-1); if(idx!==-1){ posArr[idx]=0; moved=true; } }
-      if(!moved){ for(let i=0;i<4;i++){ if(posArr[i]>=0 && posArr[i]<BOARD_SIZE){ posArr[i]+=roll; if(posArr[i]>=BOARD_SIZE) posArr[i]=BOARD_SIZE; moved=true; break; } } }
+      if(roll===6){ const idx=posArr.findIndex(p=>p===-1); if(idx!==-1){ posArr[idx]=0; moved=true; } }
+      if(!moved){ for(let i=0;i<4;i++){ if(posArr[i]>=0 && posArr[i]<52){ posArr[i]+=roll; if(posArr[i]>=52) posArr[i]=52; moved=true; break; } } }
       state.positions[myId]=posArr;
-      state.lastRoll={pid:myId, roll};
-      state.logs=state.logs||[]; state.logs.push(`${currentRoom.players[myId].name} rolled ${roll}`);
-      state.turnIndex = roll===6 ? state.turnIndex : (state.turnIndex+1)%(state.order.length||1);
+      state.lastRoll={pid:myId,roll};
+      state.logs=state.logs||[];
+      state.logs.push(`${currentRoom.players[myId].name} rolled ${roll}`);
+      state.turnIndex = (roll!==6) ? (state.turnIndex+1)%order.length : state.turnIndex;
       await roomRef.child('state').set(state);
     };
 
+    // ---------------- Room Functions ----------------
     async function createRoom(code){
-      roomCode=code; roomRef=db.ref('rooms/'+roomCode);
-      const players={}; players[myId]={name:myName,color:myColor===null?0:myColor,joinedAt:Date.now(),isHost:true};
-      const roomObj={players, createdAt:Date.now(), started:false};
-      await roomRef.set(roomObj);
+      roomRef = db.ref('rooms/'+code);
+      const players={};
+      players[myId]={name:myName,color:myColor===null?0:myColor,joinedAt:Date.now(),isHost:true};
+      await roomRef.set({players, createdAt:Date.now(), started:false});
       listenRoom();
-      $('roomInfo').innerText='Room created: '+roomCode+' — share this code with friends.';
-      $('playersWrap').hidden=false; $('roomCodeLabel').innerText=roomCode;
-      appendLog('Room created: '+roomCode);
+      $('roomInfo').innerText='Room created: '+code+' — share this code with friends.';
+      $('playersWrap').hidden=false;
+      $('roomCodeLabel').innerText=code;
+      appendLog('Room created: '+code);
     }
 
     async function joinRoom(code){
-      roomCode=code; roomRef=db.ref('rooms/'+roomCode);
-      const snap=await roomRef.once('value'); if(!snap.exists()){ alert('Room not found'); return; }
-      const room=snap.val(); const players=room.players||{};
-      if(Object.keys(players).length>=4){ alert('Room full (max 4)'); return; }
-      let chosen=myColor; if(chosen===null){ const used=new Set(Object.values(players).map(p=>p.color)); chosen=[0,1,2,3].find(c=>!used.has(c)); if(chosen===undefined) chosen=0; }
+      roomRef = db.ref('rooms/'+code);
+      const snap=await roomRef.once('value');
+      if(!snap.exists()){ alert('Room not found'); return; }
+      const room = snap.val();
+      const players = room.players || {};
+      if(Object.keys(players).length>=4){ alert('Room full'); return; }
+      let chosen = myColor;
+      if(chosen===null){ const used=new Set(Object.values(players).map(p=>p.color)); chosen=[0,1,2,3].find(c=>!used.has(c))||0; }
       players[myId]={name:myName,color:chosen,joinedAt:Date.now(),isHost:false};
       await roomRef.child('players').set(players);
-      listenRoom(); $('roomInfo').innerText='Joined room: '+roomCode; $('playersWrap').hidden=false; $('roomCodeLabel').innerText=roomCode;
-      appendLog('Joined room: '+roomCode);
+      listenRoom();
+      $('roomInfo').innerText='Joined room: '+code;
+      $('playersWrap').hidden=false;
+      $('roomCodeLabel').innerText=code;
+      appendLog('Joined room: '+code);
     }
 
     function listenRoom(){
       if(!roomRef) return;
-      roomRef.on('value',snap=>{ currentRoom=snap.val(); updatePlayersUI(); updateGameFromRoom(); });
+      roomRef.on('value',snap=>{
+        currentRoom = snap.val();
+        updatePlayersUI();
+        updateGameFromRoom();
+      });
     }
 
     function updatePlayersUI(){
-      const players=currentRoom&&currentRoom.players?currentRoom.players:{}; const list=$('playersList'); list.innerHTML='';
-      Object.keys(players).forEach(pid=>{ const p=players[pid]; const div=document.createElement('div'); div.className='playerChip'; div.textContent=p.name+(p.isHost?' (host)':''); list.appendChild(div); if(pid===myId) amHost=!!p.isHost; });
+      const players = currentRoom?.players||{};
+      const list=$('playersList'); list.innerHTML='';
+      Object.keys(players).forEach(pid=>{
+        const p=players[pid];
+        const div=document.createElement('div');
+        div.className='playerChip';
+        div.textContent=p.name+(p.isHost?' (host)':'');
+        list.appendChild(div);
+        if(pid===myId) amHost=!!p.isHost;
+      });
       $('playersWrap').hidden=Object.keys(players).length===0;
-      startBtn.style.display=(amHost&&(!currentRoom.started))?'inline-block':'none';
+      startBtn.style.display=(amHost && !currentRoom.started)?'inline-block':'none';
       $('gameArea').hidden=!currentRoom.started;
     }
 
     function updateGameFromRoom(){
-      if(!currentRoom||!currentRoom.started) return;
-      $('gameArea').hidden=false;
-      const state=currentRoom.state||{}; const order=state.order||[];
+      if(!currentRoom?.started) return;
+      const state=currentRoom.state||{};
+      const order=state.order||[];
       const wrap=$('playersWrapBoard'); wrap.innerHTML='';
-      order.forEach((pid,idx)=>{ const p=currentRoom.players[pid]; const el=document.createElement('div'); el.className='small center'; const badge=document.createElement('div'); badge.textContent=(idx===state.turnIndex?'▶':'•')+' '+p.name; badge.style.minWidth='120px'; el.appendChild(badge); wrap.appendChild(el); });
+      order.forEach((pid,idx)=>{
+        const p=currentRoom.players[pid];
+        const el=document.createElement('div'); el.className='small center';
+        const badge=document.createElement('div');
+        badge.textContent=(idx===state.turnIndex?'▶':'•')+' '+p.name; badge.style.minWidth='120px';
+        el.appendChild(badge); wrap.appendChild(el);
+      });
       $('turnLabel').innerText='Turn: '+(currentRoom.players[state.order[state.turnIndex]]?.name||'—');
       $('lastRoll').innerText=state.lastRoll?`Last: ${state.lastRoll.roll} (${currentRoom.players[state.lastRoll.pid]?.name||''})`:'';
       renderBoardPositions(state.positions||{});
@@ -233,14 +263,22 @@
     }
 
     function renderBoardPositions(positions){
-      for(let i=0;i<BOARD_SIZE;i++){ const cell=boardEl.querySelector(`[data-idx="${i}"]`); if(!cell) continue; cell.innerHTML=i+1; }
-      if(!positions) return;
-      Object.keys(positions).forEach(pid=>{ const arr=positions[pid]; const color=currentRoom.players[pid]?.color??0;
-        arr.forEach((p,idxTok)=>{ if(p>=0 && p<BOARD_SIZE){ const cell=boardEl.querySelector(`[data-idx="${p}"]`); if(!cell) return; const t=document.createElement('span'); t.className='token p'+(color%4); t.title=(currentRoom.players[pid]?.name||'')+' #'+(idxTok+1); cell.appendChild(t); } });
+      for(let i=0;i<52;i++){
+        const cell=boardEl.querySelector(`[data-idx="${i}"]`); if(!cell) continue; cell.innerHTML=(i+1);
+      }
+      Object.keys(positions).forEach(pid=>{
+        const arr=positions[pid]; const color=currentRoom.players[pid]?.color||0;
+        arr.forEach((p,idxTok)=>{
+          if(p>=0 && p<52){
+            const cell=boardEl.querySelector(`[data-idx="${p}"]`); if(!cell) return;
+            const t=document.createElement('span'); t.className='token p'+(color%4);
+            t.title=(currentRoom.players[pid]?.name||'')+' #'+(idxTok+1); cell.appendChild(t);
+          }
+        });
       });
     }
 
-    appendLog('Welcome to Web Ludo. Create a room, share code, then have friends join.');
+    appendLog('Welcome to Web Ludo. Create a room and start playing!');
   </script>
 </body>
 </html>
